@@ -1,11 +1,15 @@
+<div align="center">
+
 # dsh-panel-tidy
 
-**侧栏每条面板都能拖，拖进「更多」就收起来。**
+**侧栏每条面板都能拖，拖进「更多」就收起来**
 
 [![License](https://img.shields.io/badge/license-MIT-3E63DD?style=flat-square)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.19-3E63DD?style=flat-square&logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![DSH plugin](https://img.shields.io/badge/DSH-plugin-4D6BFE?style=flat-square)](https://github.com/deepseek-ai/deepseek-harness)
 [![English](https://img.shields.io/badge/English-version-8B5CF6?style=flat-square)](#english-version)
+
+</div>
 
 ---
 
