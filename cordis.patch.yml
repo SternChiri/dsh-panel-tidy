@@ -1,0 +1,4 @@
+# 面板整理：宿主半边注册状态路由，浏览器半边由 package.json 的 dsh.client 声明加载。
+- insert:
+    - id: panel-tidy
+      name: 'dsh-panel-tidy'
