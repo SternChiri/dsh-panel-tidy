@@ -13,6 +13,11 @@
 
 ---
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/drag-reorder.gif" alt="长按一行进入拖动状态，拖动时落点线指示插入位置，松手后该行落位" width="483">
+</p>
+<p align="center"><sub>长按 500ms 后拖动，落点线指示插入位置</sub></p>
+
 ## 🌟 这是什么
 
 DSH 左侧栏的面板区（全局面板）由 `sidebar.panellist` 槽承载。每装一个带侧栏入口的插件，主列表就多一行，顺序按注册先后排；行一多，留给会话的空间先被挤掉。
@@ -29,6 +34,11 @@ DSH 左侧栏的面板区（全局面板）由 `sidebar.panellist` 槽承载。�
 | 2 | 收纳 | 除 `plugins`（插件）、`schedules`（自动化任务）以外的侧栏面板默认在「更多」里；之后新装的插件同样默认收纳 |
 | 3 | 记住 | 顺序与收纳状态同时写进宿主文件 `$DSH_HOME/panel-tidy/state.json`、cookie、`localStorage`；重启、换端口、清 cookie 都能恢复 |
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/more-menu.jpg" alt="「更多」菜单展开后，收纳的面板排在「浏览更多插件」之前" width="382">
+</p>
+<p align="center"><sub>装好后的默认状态：插件与自动化任务留在主列表，其余面板收在「更多」里</sub></p>
+
 ## 🎛️ 拖动
 
 **长按才进入拖动。** 鼠标左键按住 500ms，行落到官方按下态底色并渐染一点品牌色；这段时间里移动超过 8px 视为点击或误触，直接放弃，点击行为不受影响。悬停时行光标保持原样，不出现抓手。
@@ -43,6 +53,11 @@ DSH 左侧栏的面板区（全局面板）由 `sidebar.panellist` 槽承载。�
 | 菜单条目拖回左侧栏 | 放回主列表 |
 
 菜单行与官方两条长得一样：左侧是面板自己的图标（取自主列表那一行的同一个 svg，缩放到 16px），没有分隔线，没有拖动手柄。
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/fold-into-more.gif" alt="把一行拖到「更多」上，出现品牌色描边，松手后收进二级菜单并自动展开" width="483">
+</p>
+<p align="center"><sub>拖到「更多」上松手即收纳，菜单跟着展开</sub></p>
 
 ## 🎨 视觉
 
@@ -144,6 +159,11 @@ MIT —— 详见 [LICENSE](LICENSE)。
 
 **Drag any sidebar panel — drop it into More to put it away.**
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/drag-reorder.gif" alt="Hold a row to arm dragging; the drop line shows where it will land; release to place it" width="483">
+</p>
+<p align="center"><sub>Hold for 500ms, then drag — the line shows where the row will land</sub></p>
+
 ## 🌟 What this is
 
 DSH's sidebar panel area is the `sidebar.panellist` slot. Every plugin that registers a sidebar entry adds one more row, ordered by registration; enough rows squeeze out the space left for conversations.
@@ -160,6 +180,11 @@ Out of the box, non-core entries sit in More above "browse more plugins", and th
 | 2 | Collect | Every sidebar panel except `plugins` and `schedules` lives in the More menu by default; panels registered later are collected the same way |
 | 3 | Remember | Order and folded state go to `$DSH_HOME/panel-tidy/state.json`, the `dsh.panel-tidy` cookie, and `localStorage`; restarts, port changes and cleared cookies all recover |
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/more-menu.jpg" alt="The More menu expanded, with collected panels listed above Browse more plugins" width="382">
+</p>
+<p align="center"><sub>The default after install: Plugins and Schedules stay in the list, everything else sits in More</sub></p>
+
 ## 🎛️ Dragging
 
 Hold the left button for 500ms to arm a row: it takes the pressed background and fades in a little brand color. Moving more than 8px in that window cancels and leaves the click untouched. Hover never turns the cursor into a grab hand.
@@ -174,6 +199,11 @@ While dragging, the cursor turns `grabbing` and the row follows the pointer (tra
 | Sidebar, from a menu row | Release back to the main list |
 
 Menu rows match the stock ones: the panel's own icon (the svg from its main-list row, scaled to 16px), no separators, no drag handle.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/fold-into-more.gif" alt="A row dragged onto More shows a brand-colored ring; releasing collects it into the submenu and opens it" width="483">
+</p>
+<p align="center"><sub>Release on More to collect the row — the menu opens with it</sub></p>
 
 ## 🎨 Visuals
 
