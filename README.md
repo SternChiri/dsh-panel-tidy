@@ -1,5 +1,9 @@
 <div align="center">
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/drag-reorder.gif" alt="长按一行进入拖动状态，拖动时落点线指示插入位置，松手后该行落位" width="481">
+</p>
+
 # dsh-panel-tidy
 
 **侧栏每条面板都能拖，拖进「更多」就收起来**
@@ -12,11 +16,6 @@
 </div>
 
 ---
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/drag-reorder.gif" alt="长按一行进入拖动状态，拖动时落点线指示插入位置，松手后该行落位" width="483">
-</p>
-<p align="center"><sub>长按 500ms 后拖动，落点线指示插入位置</sub></p>
 
 ## 🌟 这是什么
 
@@ -55,7 +54,7 @@ DSH 左侧栏的面板区（全局面板）由 `sidebar.panellist` 槽承载。�
 菜单行与官方两条长得一样：左侧是面板自己的图标（取自主列表那一行的同一个 svg，缩放到 16px），没有分隔线，没有拖动手柄。
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/fold-into-more.gif" alt="把一行拖到「更多」上，出现品牌色描边，松手后收进二级菜单并自动展开" width="483">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/fold-into-more.gif" alt="把一行拖到「更多」上，出现品牌色描边，松手后收进二级菜单并自动展开" width="481">
 </p>
 <p align="center"><sub>拖到「更多」上松手即收纳，菜单跟着展开</sub></p>
 
@@ -155,14 +154,13 @@ MIT —— 详见 [LICENSE](LICENSE)。
 
 <a id="english-version"></a>
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/drag-reorder.gif" alt="Hold a row to arm dragging; the drop line shows where it will land; release to place it" width="481">
+</p>
+
 # dsh-panel-tidy
 
 **Drag any sidebar panel — drop it into More to put it away.**
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/drag-reorder.gif" alt="Hold a row to arm dragging; the drop line shows where it will land; release to place it" width="483">
-</p>
-<p align="center"><sub>Hold for 500ms, then drag — the line shows where the row will land</sub></p>
 
 ## 🌟 What this is
 
@@ -201,7 +199,7 @@ While dragging, the cursor turns `grabbing` and the row follows the pointer (tra
 Menu rows match the stock ones: the panel's own icon (the svg from its main-list row, scaled to 16px), no separators, no drag handle.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/fold-into-more.gif" alt="A row dragged onto More shows a brand-colored ring; releasing collects it into the submenu and opens it" width="483">
+  <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/fold-into-more.gif" alt="A row dragged onto More shows a brand-colored ring; releasing collects it into the submenu and opens it" width="481">
 </p>
 <p align="center"><sub>Release on More to collect the row — the menu opens with it</sub></p>
 
