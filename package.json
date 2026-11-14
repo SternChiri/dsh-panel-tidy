@@ -1,6 +1,6 @@
 {
   "name": "dsh-panel-tidy",
-  "version": "0.1.7",
+  "version": "0.2.1",
   "type": "module",
   "description": "侧栏面板自由拖动：长按拖到任意位置排序，拖进「更多」即收纳、拖出即放回。Sidebar panel organizer for DeepSeek Harness: drag any panel to reorder, drop it into More to fold.",
   "keywords": [

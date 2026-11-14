@@ -23,20 +23,20 @@ DSH 左侧栏的面板区（全局面板）由 `sidebar.panellist` 槽承载。�
 
 这个插件让每一条面板都能长按拖动、自由排序：常驻的按你的习惯排，不常用的拖进「更多」二级菜单收起，需要时再拖回来。
 
-开箱状态：非本体入口都在「更多」里，排在「浏览更多插件」上方；主列表是 **插件**、**自动化任务**、**更多**。
+开箱状态：所有已注册的入口都按宿主本来的样子显示在主列表，只有被你拖进「更多」的才留在菜单里。
 
 ## 🧩 它做三件事
 
 | # | 行为 | 说明 |
 |:--|:--|:--|
 | 1 | 拖动 | 主列表任意拖动排序；拖到「更多」上松手即收纳并自动展开菜单；菜单里的条目也能排序，拖回左侧栏即放回主列表 |
-| 2 | 收纳 | 除 `plugins`（插件）、`schedules`（自动化任务）以外的侧栏面板默认在「更多」里；之后新装的插件同样默认收纳 |
+| 2 | 收纳 | 把行拖到「更多」上就算收起来；没被拖过的行一律留在主列表，新装的插件也不会自己跑进「更多」 |
 | 3 | 记住 | 顺序与收纳状态同时写进宿主文件 `$DSH_HOME/panel-tidy/state.json`、cookie、`localStorage`；重启、换端口、清 cookie 都能恢复 |
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/more-menu.jpg" alt="「更多」菜单展开后，收纳的面板排在「浏览更多插件」之前" width="382">
 </p>
-<p align="center"><sub>装好后的默认状态：插件与自动化任务留在主列表，其余面板收在「更多」里</sub></p>
+<p align="center"><sub>把几个入口收进「更多」之后：它们排在「浏览更多插件」之前</sub></p>
 
 ## 🎛️ 拖动
 
@@ -72,9 +72,9 @@ DSH 左侧栏的面板区（全局面板）由 `sidebar.panellist` 槽承载。�
 
 拖动是纯指针事件，不用原生 HTML5 拖放：元素一旦可拖，浏览器就把光标变成抓手，而按下之后再设 `draggable` 也不会触发 `dragstart`。拖动期间被拖行的 `pointer-events` 设为 `none`，让 `elementFromPoint` 落到它下面那一行；落点判定统一走一次解析，空白与行间退化为按几何取最近一行。
 
-收纳用 CSS `display:none` 隐藏主列表行，不用官方 pin：官方 pin 状态在侧栏组件的内存 store 里，而 `sidebar.panellist.actions` 的组件只在「更多」菜单展开时挂载，加载阶段拿不到 `setPinned`；直接隐藏 DOM 是首屏就生效的做法，也不改动官方 pin 状态。
+收纳分两种走法。0.2.2 起的宿主自带官方钉针：插件点一下那条行自己的「取消固定」钮，行由宿主摘走，「更多」里的行也由宿主自己画，插件只管把哪几行该收起来记下来。更早的宿主没有钉针，插件用 CSS `display:none` 隐藏主列表行，并把被收起的入口注册进 `sidebar.panellist.actions`（`order: -1`，排在「浏览更多插件」之前）自己画，行组件复用 `@deepseek-ai/dsh-client-ui-primitives` 的 `MenuItemButton`。两种模式共用同一份状态，升级或降级都不丢。
 
-被收纳的入口由插件注册进 `sidebar.panellist.actions`（`order: -1`），因此排在「浏览更多插件」之前；行组件复用 `@deepseek-ai/dsh-client-ui-primitives` 的 `MenuItemButton`。
+官方钉针的 store 是侧栏组件内部私有的，`sidebar.panellist.actions` 又只在「更多」菜单展开时挂载，加载阶段拿不到 `setPinned`，所以插件不改它的状态，只把它的按钮当成开关来点；点之前记下焦点，点完还回去，用户自己在「更多」里钉回来那次点击也会被记下。
 
 状态由宿主半边在 `/dsh-panel-tidy/state` 上提供读写，见下一节。
 
@@ -111,7 +111,7 @@ dsh plugin --profile desktop remove dsh-panel-tidy
 ### 让 Agent 替你装
 
 ```text
-请帮我安装 dsh-panel-tidy（仓库：https://github.com/SternChiri/dsh-panel-tidy）。先读该仓库 README 的「安装」，用 plugin_manager 把它装进 desktop profile，重启 DSH 后确认侧栏面板能长按拖动、「更多」里有收纳条目，并告诉我怎么把它关掉。
+请帮我安装 dsh-panel-tidy（仓库：https://github.com/SternChiri/dsh-panel-tidy）。先读该仓库 README 的「安装」，用 plugin_manager 把它装进 desktop profile，重启 DSH 后确认侧栏面板能长按拖动、能把一条行拖进「更多」，并告诉我怎么把它关掉。
 ```
 
 ## 💾 状态存在哪
@@ -133,16 +133,16 @@ dsh plugin --profile desktop remove dsh-panel-tidy
 ## ✅ 验证
 
 ```sh
-node test.mjs   # 137 项，桩 DOM + 极简 React + 临时目录，离线跑
+node test.mjs   # 180 项，桩 DOM + 极简 React + 临时目录，离线跑
 ```
 
-覆盖拖动（长按判定、跟手、落点结算、落位提示）、收纳与保留、菜单行渲染（图标、无分隔线、无手柄）、顺序与状态落盘、`prefers-reduced-motion`，以及宿主半边的状态校验、文件读写、路由响应、装配在有无 Web 服务时的行为、三处存储的对齐。
+覆盖拖动（长按判定、跟手、落点结算、落位提示）、收纳与保留、新装插件默认显示、两种收纳模式（官方钉针与 CSS 隐藏）、菜单行渲染（图标、无分隔线、无手柄）、菜单行的识别与钉回（嵌套结构、行上的标被重渲染冲掉、菜单晚挂一步）、顺序与状态落盘、`prefers-reduced-motion`，以及宿主半边的状态校验、文件读写、路由响应、装配在有无 Web 服务时的行为、三处存储的对齐。
 
 ## 🗺️ 已知边界
 
 - 依赖官方侧栏的 DOM 结构（`nav` 下的 `button[aria-label]`、带 `aria-haspopup="menu"` 的「更多」按钮）与槽名 `sidebar.panellist` / `sidebar.panellist.actions`。DSH 改动这两处时插件会失效，需要跟着改。
 - 只处理左侧栏面板区。会话列表、页头、右侧栏不在范围内。
-- 不接管官方 pin 与官方「更多」里的两条固定项。
+- 不接管官方「更多」里的两条固定项；在自带钉针的宿主上，插件也不写官方 pin 的 store，只点它的按钮。
 - 不读写会话数据，不碰沙箱与终端。
 - 状态路由在 loopback 上不额外鉴权，本机进程可以改写这份布局。
 
@@ -168,20 +168,20 @@ DSH's sidebar panel area is the `sidebar.panellist` slot. Every plugin that regi
 
 This plugin makes every panel draggable: keep the ones you use in your own order, drag the rest into the More submenu, drag them back when you need them.
 
-Out of the box, non-core entries sit in More above "browse more plugins", and the main list is **Plugins**, **Schedules**, **More**.
+Out of the box every registered entry stays in the main list exactly as DSH draws it; only what you drop into More stays in the menu.
 
 ## 🧩 What it does
 
 | # | Behaviour | Detail |
 |:--|:--|:--|
 | 1 | Drag | Reorder rows in the main list; drop on More to collect (the menu opens); reorder inside the menu; drag a menu row back to the sidebar to release it |
-| 2 | Collect | Every sidebar panel except `plugins` and `schedules` lives in the More menu by default; panels registered later are collected the same way |
+| 2 | Collect | Dropping a row on More collects it; every row stays in the sidebar until you move it there, and newly installed plugins are no exception |
 | 3 | Remember | Order and folded state go to `$DSH_HOME/panel-tidy/state.json`, the `dsh.panel-tidy` cookie, and `localStorage`; restarts, port changes and cleared cookies all recover |
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/SternChiri/dsh-panel-tidy/main/assets/more-menu.jpg" alt="The More menu expanded, with collected panels listed above Browse more plugins" width="382">
 </p>
-<p align="center"><sub>The default after install: Plugins and Schedules stay in the list, everything else sits in More</sub></p>
+<p align="center"><sub>Three entries collected into More: they sit above Browse more plugins</sub></p>
 
 ## 🎛️ Dragging
 
@@ -217,7 +217,9 @@ Panel identity comes from `options.id` in `ctx.slots.entriesOfSlot('sidebar.pane
 
 Dragging uses pointer events, not native HTML5 drag and drop: a draggable element turns the cursor into a grab hand, and setting `draggable` after mousedown does not start a drag. While dragging, the dragged row gets `pointer-events: none` so `elementFromPoint` reaches the row beneath it; hit testing resolves through one function, falling back to the nearest row by geometry for gaps and empty space.
 
-Collection uses CSS `display:none` rather than the official pin: the pin state lives in the sidebar component's in-memory store, and `sidebar.panellist.actions` mounts only while the More menu is open, so `setPinned` is unavailable at load time; hiding the DOM row works on first paint and leaves the pin state alone.
+Collection takes two routes. Hosts from 0.2.2 on ship the official pin: the plugin clicks the row's own unpin button, the host removes the row, and the host draws the More menu rows itself -- the plugin only records which rows should be collected. Older hosts have no pin: the plugin hides the sidebar row with CSS `display:none` and registers the collected entries into `sidebar.panellist.actions` (`order: -1`, ahead of the stock entries), reusing `MenuItemButton` from `@deepseek-ai/dsh-client-ui-primitives`. Both modes share one state, so upgrading or downgrading loses nothing.
+
+The pin store is private to the sidebar component and `sidebar.panellist.actions` only mounts while the More menu is open, so `setPinned` is out of reach at load time. The plugin leaves that state alone and treats the host's buttons as switches instead: it saves the focused element, clicks, and restores focus, and it records the click when you pin a row back from the More menu yourself.
 
 Collected entries are registered into `sidebar.panellist.actions` with `order: -1`, so they render above "browse more plugins"; rows reuse `MenuItemButton` from `@deepseek-ai/dsh-client-ui-primitives`.
 
@@ -278,16 +280,16 @@ Writes happen only after the host state was read successfully, so a network hicc
 ## ✅ Verify
 
 ```sh
-node test.mjs   # 137 checks, offline, stub DOM, a minimal React and a temp directory
+node test.mjs   # 180 checks, offline, stub DOM, a minimal React and a temp directory
 ```
 
-Covers dragging (hold detection, following, drop resolution, settle feedback), collection and retention, menu row rendering (icon, no separator, no handle), persistence, `prefers-reduced-motion`, plus host-side state validation, file IO, route responses, assembly with and without a web server, and three-way store reconciliation.
+Covers dragging (hold detection, following, drop resolution, settle feedback), collection and retention, menu row rendering (icon, no separator, no handle), menu row identification and pinning back (nested structure, re-render dropping the row tag, a menu that mounts late), persistence, `prefers-reduced-motion`, plus host-side state validation, file IO, route responses, assembly with and without a web server, and three-way store reconciliation.
 
 ## 🗺️ Known limitations
 
 - Depends on the stock sidebar DOM (rows under `nav` as `button[aria-label]`, the More button with `aria-haspopup="menu"`) and on the slot names `sidebar.panellist` and `sidebar.panellist.actions`. A change to either breaks the plugin.
 - Left sidebar panel area only. Session list, header, and right sidebar are out of scope.
-- Does not touch the official pin state or the two stock More entries.
+- Does not touch the two stock More entries; on hosts that ship the pin, the plugin never writes that store either -- it only clicks the host buttons.
 - Reads and writes no session data, no sandbox, no terminals.
 - The state route adds no authentication on loopback, so a local process can rewrite the layout.
 

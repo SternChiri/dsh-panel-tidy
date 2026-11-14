@@ -101,6 +101,15 @@ const html = new El('html')
 const head = html.appendChild(new El('head'))
 const body = html.appendChild(new El('body'))
 const docListeners = new Map()
+// 同一个事件可以挂多个监听；.get(type) 拿到的是一次触发全部监听的分发器。
+const docListenerLists = new Map()
+function syncDocListener(type) {
+  const list = docListenerLists.get(type) || []
+  if (list.length === 0) docListeners.delete(type)
+  else docListeners.set(type, (event) => {
+    for (const one of list) one(event)
+  })
+}
 let elementFromPointImpl = () => null
 // 浏览器桩：cookie 用一条字符串模拟（只按名字覆盖，不区分端口，跟真实行为一致）
 let cookieJar = ''
@@ -137,10 +146,18 @@ globalThis.document = {
     applyCookieLine(String(value))
   },
   addEventListener(type, fn) {
-    docListeners.set(type, fn)
+    const list = docListenerLists.get(type) || []
+    if (list.indexOf(fn) < 0) list.push(fn)
+    docListenerLists.set(type, list)
+    syncDocListener(type)
   },
-  removeEventListener(type) {
-    docListeners.delete(type)
+  removeEventListener(type, fn) {
+    const list = docListenerLists.get(type) || []
+    docListenerLists.set(
+      type,
+      list.filter((one) => one !== fn)
+    )
+    syncDocListener(type)
   }
 }
 globalThis.MutationObserver = class {
@@ -285,7 +302,7 @@ function mountCtx(api) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-// ================================================================ 场景一：默认全部收纳
+// ================================================================ 场景一：默认全部显示
 {
   html.children = html.children.filter((c) => c.tagName === 'HEAD' || c.tagName === 'BODY')
   body.children = []
@@ -303,8 +320,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
   check('本体 plugins 仍在主列表', rows.plugins.style.display !== 'none', JSON.stringify(rows.plugins.style))
   check('本体 schedules 仍在主列表', rows.schedules.style.display !== 'none', JSON.stringify(rows.schedules.style))
-  check('歸藏设计 已被收纳（隐藏）', rows.guizang.style.display === 'none', JSON.stringify(rows.guizang.style))
-  check('记忆 已被收纳（隐藏）', rows.mneme.style.display === 'none', JSON.stringify(rows.mneme.style))
+  check('歸藏设计 默认显示（没被手动收起来过）', rows.guizang.style.display !== 'none', JSON.stringify(rows.guizang.style))
+  check('记忆 默认显示', rows.mneme.style.display !== 'none', JSON.stringify(rows.mneme.style))
   check('主列表顺序按注册 order', [rows.plugins, rows.guizang, rows.schedules, rows.mneme].map((r) => r.style.order).join(',') === '0,1,2,3', [rows.plugins, rows.guizang, rows.schedules, rows.mneme].map((r) => r.style.order).join(','))
   check('「更多」永远排最后', moreWrap.style.order === '9000', String(moreWrap.style.order))
   check('行上不挂原生 draggable', rows.guizang.getAttribute('draggable') === null)
@@ -317,14 +334,33 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
   check('按住/落位有克制的动效', css.includes('dsh-tidy-arm') && css.includes('dsh-tidy-settle'))
   check('尊重 prefers-reduced-motion', css.includes('prefers-reduced-motion'))
 
+  const saved = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('落盘顺序按注册 order', (saved.order || []).join(',') === 'plugins,guizang-design,schedules,dsh-mneme', (saved.order || []).join(','))
+  const fromCookie = JSON.parse(decodeURIComponent((cookieJar.match(/(?:^|; )dsh\.panel-tidy=([^;]*)/) || [])[1] || 'null') || '{}')
+  check('状态同时写进 cookie（cookie 不随端口隔离）', (fromCookie.order || []).join(',') === 'plugins,guizang-design,schedules,dsh-mneme', cookieJar)
+}
+
+// ================================================================ 场景一·二：兼容模式的「更多」抽屉（宿主没有钉针）
+{
+  body.children = []
+  head.children = []
+  resetStore({ folded: { 'guizang-design': true, 'dsh-mneme': true }, order: [] })
+  const api = loadPlugin()
+  const actions = mountCtx(api)
+  const { nav, rows } = buildNav()
+  body.appendChild(nav)
+  await sleep(80)
+
+  check('兼容模式：显式收起的行自己藏起来', rows.guizang.style.display === 'none' && rows.mneme.style.display === 'none', JSON.stringify([rows.guizang.style, rows.mneme.style]))
+
   const markup = renderNode(
     React.createElement(actions.component, {
-      entries: PANELS.slice(1).map((p) => ({ id: p.options.id, label: p.options.label(), pinned: true, active: p.options.id === 'dsh-mneme' })),
+      entries: PANELS.slice(1).map((p) => ({ id: p.options.id, label: p.options.label(), active: p.options.id === 'dsh-mneme' })),
       onOpen() {},
       onDismiss() {}
     })
   )
-  check('菜单渲染出歸藏设计', markup.includes('歸藏设计'))
+  check('菜单渲染出歸藏设计', markup.includes('歸藏设计'), markup)
   check('菜单渲染出记忆', markup.includes('记忆'))
   check('本体 schedules 没被收进菜单', !markup.includes('自动化任务'))
   check('没有分隔线', !markup.includes('dsh-tidy-sep') && !markup.includes('separator'))
@@ -336,11 +372,6 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
   const empty = renderNode(React.createElement(actions.component, { entries: [{ id: 'plugins', label: '插件' }], onOpen() {}, onDismiss() {} }))
   check('没有可收纳项时什么都不渲染', empty === '')
-
-  const saved = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
-  check('落盘顺序按注册 order', (saved.order || []).join(',') === 'plugins,guizang-design,schedules,dsh-mneme', (saved.order || []).join(','))
-  const fromCookie = JSON.parse(decodeURIComponent((cookieJar.match(/(?:^|; )dsh\.panel-tidy=([^;]*)/) || [])[1] || 'null') || '{}')
-  check('状态同时写进 cookie（cookie 不随端口隔离）', (fromCookie.order || []).join(',') === 'plugins,guizang-design,schedules,dsh-mneme', cookieJar)
 }
 
 // ================================================================ 场景二：预设「歸藏设计」放出来 + 自定义顺序
@@ -359,22 +390,345 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
   check('自定义顺序生效（plugins 第三）', rows.plugins.style.order === '2', String(rows.plugins.style.order))
 }
 
-// ================================================================ 场景三：新插件自动收纳
+// ================================================================ 场景三：新插件默认显示
 {
   body.children = []
   head.children = []
   resetStore()
   const api = loadPlugin()
   mountCtx(api)
-  const { nav, rows } = buildNav()
+  const { nav } = buildNav()
   const extra = new El('button')
   extra.setAttribute('aria-label', '新插件')
   nav.appendChild(extra)
   PANELS.push({ options: { id: 'brand-new', order: 99, label: () => '新插件' } })
   body.appendChild(nav)
   await sleep(80)
-  check('后来注册的插件默认被收纳', extra.style.display === 'none', JSON.stringify(extra.style))
+  check('后来注册的插件默认显示，不被自动收纳', extra.style.display !== 'none', JSON.stringify(extra.style))
+  check('后来注册的插件也排进顺序表', extra.style.order === '4', String(extra.style.order))
   PANELS.pop()
+}
+
+// ================================================================ 场景三·二：原生钉针模式
+{
+  body.children = []
+  head.children = []
+  resetStore({ folded: { 'dsh-mneme': true }, order: ['guizang-design', 'plugins', 'schedules', 'dsh-mneme'] })
+  const clicks = []
+  const originalClick = El.prototype.click
+  El.prototype.click = function () {
+    clicks.push(this.getAttribute('aria-label'))
+  }
+
+  // 宿主 0.2.2 的行：div 里两个按钮，第二个是「取消固定」。
+  const nav = new El('nav')
+  nav.rect = { top: 0, left: 0, width: 220, height: 400 }
+  const nativeRow = (label) => {
+    const wrap = nav.appendChild(new El('div'))
+    const btn = wrap.appendChild(new El('button'))
+    btn.setAttribute('aria-label', label)
+    const glyph = btn.appendChild(new El('svg'))
+    glyph.outerHTML = '<svg class="glyph-for-' + label + '"></svg>'
+    const unpin = wrap.appendChild(new El('button'))
+    unpin.setAttribute('aria-label', '从侧边栏取消固定' + label)
+    return wrap
+  }
+  const rows = {
+    plugins: nativeRow('插件'),
+    guizang: nativeRow('歸藏设计'),
+    schedules: nativeRow('自动化任务'),
+    mneme: nativeRow('记忆')
+  }
+  const moreWrap = nav.appendChild(new El('span'))
+  const moreBtn = new El('button')
+  moreBtn.setAttribute('aria-label', '更多')
+  moreBtn.setAttribute('aria-haspopup', 'menu')
+  moreWrap.appendChild(moreBtn)
+
+  // 宿主自己画的「更多」菜单：一行两个按钮，最后一个是钉回去的钮。
+  const menu = body.appendChild(new El('div'))
+  menu.setAttribute('role', 'menu')
+  const menuRow = menu.appendChild(new El('div'))
+  const openBtn = menuRow.appendChild(new El('button'))
+  openBtn.setAttribute('role', 'menuitem')
+  openBtn.textContent = '歸藏设计'
+  const pinBtn = menuRow.appendChild(new El('button'))
+  pinBtn.setAttribute('role', 'menuitem')
+  pinBtn.setAttribute('aria-label', '固定歸藏设计')
+
+  body.appendChild(nav)
+  const api = loadPlugin()
+  const actions = mountCtx(api)
+  await sleep(80)
+
+  const unpinClicks = clicks.filter((label) => label !== null && label.indexOf('从侧边栏取消固定') === 0)
+  check('原生模式：把已收起的条目交给宿主摘走', unpinClicks.includes('从侧边栏取消固定记忆'), JSON.stringify(clicks))
+  check('原生模式：没被收起的行不点', !unpinClicks.includes('从侧边栏取消固定歸藏设计'), JSON.stringify(clicks))
+  check('原生模式：不自己隐藏行', rows.mneme.style.display !== 'none', JSON.stringify(rows.mneme.style))
+  check('原生模式：顺序仍按自己的表', rows.guizang.style.order === '0' && rows.schedules.style.order === '2', [rows.guizang.style.order, rows.schedules.style.order].join(','))
+  check('原生模式：不再自画「更多」里的行', renderNode(React.createElement(actions.component, {
+    entries: [{ id: 'dsh-mneme', label: '记忆', pinned: false }],
+    onOpen() {},
+    onDismiss() {}
+  })) === '')
+  check('原生模式：宿主菜单行被标上身份便于拖动', menuRow.getAttribute('data-dsh-tidy-menu-row') === '' && menuRow.getAttribute('data-dsh-tidy-id') === 'guizang-design', JSON.stringify(menuRow.attributes))
+
+  // 用户自己点行上的取消固定钮：应当写进自己的状态。
+  const clickCapture = docListeners.get('click')
+  check('原生模式：挂了点击采纳', typeof clickCapture === 'function')
+  clickCapture({ target: rows.guizang.children[1] })
+  await sleep(20)
+  const savedAfter = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('原生模式：用户点取消固定会被记住', savedAfter.folded && savedAfter.folded['guizang-design'] === true, JSON.stringify(savedAfter.folded))
+
+  // 再点「更多」里的钉回：应当从状态里放开。
+  clickCapture({ target: pinBtn })
+  await sleep(20)
+  const savedBack = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('原生模式：点「更多」里的钉回会放出来', !savedBack.folded || savedBack.folded['guizang-design'] !== true, JSON.stringify(savedBack.folded))
+
+  El.prototype.click = originalClick
+}
+
+// ================================================================ 场景三·三：宿主「更多」是嵌套结构（行在容器里）
+{
+  body.children = []
+  head.children = []
+  resetStore({ folded: { 'dsh-mneme': true }, order: [] })
+
+  const nav = new El('nav')
+  nav.rect = { top: 0, left: 0, width: 220, height: 400 }
+  const nativeRow = (label) => {
+    const wrap = nav.appendChild(new El('div'))
+    const btn = wrap.appendChild(new El('button'))
+    btn.setAttribute('aria-label', label)
+    const unpin = wrap.appendChild(new El('button'))
+    unpin.setAttribute('aria-label', '从侧边栏取消固定' + label)
+    return wrap
+  }
+  nativeRow('插件')
+  nativeRow('歸藏设计')
+  nativeRow('自动化任务')
+  nativeRow('记忆')
+  const moreWrap = nav.appendChild(new El('span'))
+  const moreBtn = new El('button')
+  moreBtn.setAttribute('aria-label', '更多')
+  moreBtn.setAttribute('aria-haspopup', 'menu')
+  moreWrap.appendChild(moreBtn)
+
+  // 宿主真实结构：菜单里套一层容器，面板行在容器中，末尾还有「创建你的插件」。
+  const menu = body.appendChild(new El('div'))
+  menu.setAttribute('role', 'menu')
+  const inner = menu.appendChild(new El('div'))
+  const menuRowOf = (label) => {
+    const row = inner.appendChild(new El('div'))
+    const open = row.appendChild(new El('button'))
+    open.setAttribute('role', 'menuitem')
+    open.textContent = label
+    const pin = row.appendChild(new El('button'))
+    pin.setAttribute('role', 'menuitem')
+    pin.setAttribute('aria-label', '固定' + label)
+    return row
+  }
+  const mGuizang = menuRowOf('歸藏设计')
+  const mMneme = menuRowOf('记忆')
+  const footer = inner.appendChild(new El('div'))
+  const installBtn = footer.appendChild(new El('button'))
+  installBtn.textContent = '创建你的插件'
+
+  body.appendChild(nav)
+  const api = loadPlugin()
+  mountCtx(api)
+  await sleep(80)
+
+  const idOf = (row) => row.getAttribute('data-dsh-tidy-id')
+  const tagged = (row) => row.hasAttribute('data-dsh-tidy-menu-row')
+  check('嵌套菜单：第一行认成歸藏设计', tagged(mGuizang) && idOf(mGuizang) === 'guizang-design', JSON.stringify([tagged(mGuizang), idOf(mGuizang)]))
+  check('嵌套菜单：第二行认成记忆', tagged(mMneme) && idOf(mMneme) === 'dsh-mneme', JSON.stringify([tagged(mMneme), idOf(mMneme)]))
+  check('嵌套菜单：容器本身不被当成行', !tagged(inner), JSON.stringify(inner.attributes))
+  check(
+    '嵌套菜单：底部按钮区不被当成行',
+    !tagged(footer) && !tagged(installBtn),
+    JSON.stringify([footer.attributes, installBtn.attributes])
+  )
+
+  // 点第二行的钉针：应当把「记忆」放出来（旧实现会错点到最后那颗钉针，永远写不进状态）。
+  const clickCapture = docListeners.get('click')
+  clickCapture({ target: mMneme.children[1] })
+  await sleep(20)
+  const saved = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('嵌套菜单：点第二行钉针能放出来', !saved.folded || saved.folded['dsh-mneme'] !== true, JSON.stringify(saved.folded))
+
+  // 长按第二行：进入拖动的是那一行，不是整个菜单。
+  const down = docListeners.get('pointerdown')
+  const up = docListeners.get('pointerup')
+  down({ target: mMneme.children[0], clientX: 10, clientY: 10 })
+  await sleep(560)
+  check('嵌套菜单：长按的是被按住的那一行', mMneme.classList.contains('dsh-tidy-dragging'), String(mMneme.className))
+  check('嵌套菜单：整菜单不跟手', !menu.classList.contains('dsh-tidy-dragging') && !inner.classList.contains('dsh-tidy-dragging'))
+  // 拖到侧栏某一行上松手：应当把它放出来并落位。
+  const target = nav.children[1]
+  elementFromPointImpl = () => target
+  const move = docListeners.get('pointermove')
+  move({ target: mMneme.children[0], clientX: 10, clientY: 40 })
+  up({ target: mMneme.children[0], clientX: 10, clientY: 40 })
+  await sleep(60)
+  const afterDrop = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('嵌套菜单：拖到侧栏行上会放出来', !afterDrop.folded || afterDrop.folded['dsh-mneme'] !== true, JSON.stringify(afterDrop.folded))
+  check(
+    '嵌套菜单：放手后调了序',
+    Array.isArray(afterDrop.order) && afterDrop.order.indexOf('dsh-mneme') === afterDrop.order.indexOf('guizang-design') + 1,
+    JSON.stringify(afterDrop.order)
+  )
+  elementFromPointImpl = () => null
+  await sleep(50)
+}
+
+// ================================================================ 场景三·四：原生行拖进「更多」、菜单行拖出去
+{
+  body.children = []
+  head.children = []
+  resetStore({ folded: { 'dsh-mneme': true }, order: [] })
+  const clicks = []
+  const blocked = []
+  const originalClick = El.prototype.click
+  // 桩的 click 走一遍文档捕获监听，才能模拟「我们自己拦下了自己的点击」。
+  El.prototype.click = function () {
+    const label = this.getAttribute('aria-label')
+    clicks.push(label)
+    let prevented = false
+    const event = {
+      target: this,
+      defaultPrevented: false,
+      preventDefault() {
+        prevented = true
+        this.defaultPrevented = true
+      },
+      stopPropagation() {}
+    }
+    for (const fn of docListenerLists.get('click') || []) fn(event)
+    if (prevented) blocked.push(label)
+  }
+
+  const nav = new El('nav')
+  nav.rect = { top: 0, left: 0, width: 220, height: 400 }
+  const nativeRow = (label) => {
+    const wrap = nav.appendChild(new El('div'))
+    const btn = wrap.appendChild(new El('button'))
+    btn.setAttribute('aria-label', label)
+    const unpin = wrap.appendChild(new El('button'))
+    unpin.setAttribute('aria-label', '从侧边栏取消固定' + label)
+    return wrap
+  }
+  const rows = { plugins: nativeRow('插件'), guizang: nativeRow('歸藏设计'), schedules: nativeRow('自动化任务'), mneme: nativeRow('记忆') }
+  const moreWrap = nav.appendChild(new El('span'))
+  const moreBtn = new El('button')
+  moreBtn.setAttribute('aria-label', '更多')
+  moreBtn.setAttribute('aria-haspopup', 'menu')
+  moreWrap.appendChild(moreBtn)
+
+  const menu = body.appendChild(new El('div'))
+  menu.setAttribute('role', 'menu')
+  const menuRow = (label) => {
+    const row = menu.appendChild(new El('div'))
+    const open = row.appendChild(new El('button'))
+    open.setAttribute('role', 'menuitem')
+    open.textContent = label
+    const pin = row.appendChild(new El('button'))
+    pin.setAttribute('role', 'menuitem')
+    pin.setAttribute('aria-label', '固定' + label)
+    return row
+  }
+  const mMneme = menuRow('记忆')
+
+  body.appendChild(nav)
+  const api = loadPlugin()
+  mountCtx(api)
+  await sleep(80)
+
+  const down = docListeners.get('pointerdown')
+  const up = docListeners.get('pointerup')
+  const move = docListeners.get('pointermove')
+
+  // 原生行「自动化任务」拖到「更多」上：宿主允许它被取消固定，所以应当真的收进去。
+  clicks.length = 0
+  down({ target: rows.schedules.children[0], clientX: 10, clientY: 120 })
+  await sleep(560)
+  elementFromPointImpl = () => moreBtn
+  move({ target: rows.schedules.children[0], clientX: 10, clientY: 140 })
+  up({ target: rows.schedules.children[0], clientX: 10, clientY: 140 })
+  await sleep(60)
+  const afterCore = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('拖进更多：原生行（自动化任务）能收起', afterCore.folded && afterCore.folded.schedules === true, JSON.stringify(afterCore.folded))
+  check('拖进更多：点了它自己的取消固定钮', clicks.includes('从侧边栏取消固定自动化任务'), JSON.stringify(clicks))
+
+  // 「插件」是宿主写死的那一个，收不了：状态不该被写脏。
+  clicks.length = 0
+  down({ target: rows.plugins.children[0], clientX: 10, clientY: 20 })
+  await sleep(560)
+  elementFromPointImpl = () => moreBtn
+  move({ target: rows.plugins.children[0], clientX: 10, clientY: 40 })
+  up({ target: rows.plugins.children[0], clientX: 10, clientY: 40 })
+  await sleep(60)
+  const afterFixed = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('拖进更多：「插件」不会被收起', !afterFixed.folded || afterFixed.folded.plugins !== true, JSON.stringify(afterFixed.folded))
+  check('拖进更多：「插件」不点任何钉针钮', !clicks.includes('从侧边栏取消固定插件'), JSON.stringify(clicks))
+
+  // 菜单里的行拖到菜单外（没有落点）：按「拿出来」处理，并点它自己的钉针。
+  clicks.length = 0
+  down({ target: mMneme.children[0], clientX: 10, clientY: 10 })
+  await sleep(560)
+  elementFromPointImpl = () => null
+  move({ target: mMneme.children[0], clientX: 400, clientY: 300 })
+  up({ target: mMneme.children[0], clientX: 400, clientY: 300 })
+  await sleep(60)
+  const afterOut = JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}')
+  check('拖出菜单：状态里放出来了', !afterOut.folded || afterOut.folded['dsh-mneme'] !== true, JSON.stringify(afterOut.folded))
+  check('拖出菜单：点了它的钉针钮', clicks.includes('固定记忆'), JSON.stringify(clicks))
+  check('拖出菜单：钉针那一下没被自己的拖后拦截吞掉', !blocked.includes('固定记忆'), JSON.stringify(blocked))
+
+  // 上面的落点把状态写成「放出来」了；下面两个用例都要先把它收回去。
+  const foldBack = async () => {
+    elementFromPointImpl = () => moreBtn
+    down({ target: rows.mneme.children[0], clientX: 10, clientY: 160 })
+    await sleep(560)
+    move({ target: rows.mneme.children[0], clientX: 10, clientY: 175 })
+    up({ target: rows.mneme.children[0], clientX: 10, clientY: 175 })
+    await sleep(60)
+  }
+
+  // 宿主重渲染会把行上的标冲掉：只剩文字可认。
+  await foldBack()
+  check('行标被冲掉前：确实收回去了', JSON.parse(storage.get('dsh.panel-tidy.v1') || '{}').folded['dsh-mneme'] === true)
+  mMneme.removeAttribute('data-dsh-tidy-menu-row')
+  mMneme.removeAttribute('data-dsh-tidy-id')
+  clicks.length = 0
+  elementFromPointImpl = () => null
+  down({ target: mMneme.children[0], clientX: 10, clientY: 10 })
+  await sleep(560)
+  move({ target: mMneme.children[0], clientX: 400, clientY: 300 })
+  up({ target: mMneme.children[0], clientX: 400, clientY: 300 })
+  await sleep(60)
+  check('行标被冲掉也认得出来：仍然钉回去了', clicks.includes('固定记忆'), JSON.stringify(clicks))
+
+  // 落点那一刻菜单已经不在了：过一会儿补点一次。
+  await foldBack()
+  body.children = body.children.filter((node) => node !== menu)
+  clicks.length = 0
+  elementFromPointImpl = () => null
+  down({ target: mMneme.children[0], clientX: 10, clientY: 10 })
+  await sleep(560)
+  move({ target: mMneme.children[0], clientX: 400, clientY: 300 })
+  up({ target: mMneme.children[0], clientX: 400, clientY: 300 })
+  await sleep(20)
+  check('菜单不在时不硬点空', !clicks.includes('固定记忆'), JSON.stringify(clicks))
+  body.appendChild(menu)
+  await sleep(320)
+  check('菜单晚一步挂回来也能钉回去', clicks.includes('固定记忆'), JSON.stringify(clicks))
+
+  elementFromPointImpl = () => null
+  El.prototype.click = originalClick
+  await sleep(40)
 }
 
 // ================================================================ 场景四：长按 500ms 才进入拖动
